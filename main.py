@@ -7,7 +7,9 @@ import difflib
 
 app = Flask(__name__)
 
-# Load datasets
+
+
+# load databasedataset===================================
 sym_des = pd.read_csv("datasets/symtoms_df.csv")
 precautions = pd.read_csv("datasets/precautions_df.csv")
 workout = pd.read_csv("datasets/workout_df.csv")
@@ -18,6 +20,8 @@ diets = pd.read_csv("datasets/diets.csv")
 # Load model
 svc = pickle.load(open('svc.pkl', 'rb'))
 
+# load model===========================================
+svc = pickle.load(open('svc.pkl','rb'))
 
 
 #============================================================
