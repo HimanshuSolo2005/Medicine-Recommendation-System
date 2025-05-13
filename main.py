@@ -1,11 +1,30 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, url_for, flash
 import numpy as np
 import pandas as pd
 import pickle
 from fuzzywuzzy import process
 import difflib
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash 
+from models import User, db
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+login_manager = LoginManager()
+login_manager.login_view = 'login'
+login_manager.init_app(app)
+
+with app.app_context():
+    db.create_all()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 
 
@@ -23,8 +42,6 @@ diets = pd.read_csv("datasets/diets.csv")
 # Load model
 svc = pickle.load(open('svc.pkl', 'rb'))
 
-# load model===========================================
-svc = pickle.load(open('svc.pkl','rb'))
 
 
 #============================================================
@@ -87,6 +104,52 @@ def get_predicted_value(patient_symptoms):
 
 
 # Define a route for the home page
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        email = request.form['email']
+        name = request.form['name']
+        password = request.form['password']
+        user = User.query.filter_by(email=email).first()
+        if user:
+            flash('Email address already exists')
+            return redirect(url_for('signup'))
+        new_user = User(
+            email=email,
+            name=name,
+            password=generate_password_hash(password, method='pbkdf2:sha256')
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Account created! Please log in.')
+        return redirect(url_for('login'))
+    return render_template('signup.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user = User.query.filter_by(email=email).first()
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('index'))  # <--- This reloads the page!
+        else:
+            flash('Invalid email or password')
+    return render_template('login.html')
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', name=current_user.name)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
 @app.route("/predict", methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -115,9 +178,34 @@ def index():
 
     return render_template("index.html")
 
-@app.route('/')
+@app.route("/", methods=['GET', 'POST'])
 def home():
+    if request.method == 'POST':
+        # ... your prediction logic ...
+        symptoms = request.form.get('symptoms')
+        if not symptoms or symptoms.strip().lower() == "symptoms":
+            return render_template("index.html", message="❗ Please enter valid symptoms.")
+
+        user_symptoms = [s.strip().lower() for s in symptoms.split(',')]
+        corrected_symptoms = correct_symptoms(user_symptoms)
+
+        if not corrected_symptoms:
+            return render_template("index.html", message="❗ No matching symptoms found. Check spelling and try again.")
+
+        predicted_disease = get_predicted_value(corrected_symptoms)
+        dis_des, precautions, medications, my_diet, workout = helper(predicted_disease)
+
+        my_precautions = list(precautions)
+
+        return render_template("index.html", logged_in=current_user.is_authenticated, 
+                               predicted_disease=predicted_disease,
+                               dis_des=dis_des,
+                               my_precautions=my_precautions,
+                               medications=medications,
+                               my_diet=my_diet,
+                               workout=workout)
     return render_template("index.html")
+
 
 
 
