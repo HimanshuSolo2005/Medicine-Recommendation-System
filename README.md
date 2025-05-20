@@ -1,5 +1,5 @@
 # Medicine Recommendation System
-▶️ Live Demo: [https://medicine-recommendation-system-arise.onrender.com]
+▶️ Live Demo: [https://healthify-9cw5.onrender.com/]
 
 ## Features
 - Symptom-based disease prediction
