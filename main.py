@@ -133,7 +133,7 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('index'))  # <--- This reloads the page!
+            return redirect(url_for('profile'))  # <--- This reloads the page!
         else:
             flash('Invalid email or password')
     return render_template('login.html')
@@ -147,7 +147,7 @@ def profile():
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 
 @app.route("/predict", methods=['GET', 'POST'])
